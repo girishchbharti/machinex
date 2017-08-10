@@ -43,13 +43,13 @@ object FindSApp extends App {
     case res: Option[Concept] =>
       println("Final hypothesis.........>>>>>>>>>>>>>>>", res)
   }
+  println("*****************************Training finished****************************")
+  Thread.sleep(2000)
+
 
   /*****************************************************
    * TESTING
    ******************************************************/
-
-  Thread.sleep(2000)
-  println("*****************************Training finished****************************")
   println("*****************************Testing****************************")
   println("""***************("circular", "large", "dark", "smooth")***************""")
 
@@ -63,7 +63,7 @@ object FindSApp extends App {
       println("ERROR: " + msg)
   }
 
-  actorSystem.shutdown()
+  actorSystem.terminate()
 }
 
 
@@ -75,7 +75,7 @@ object TrainingDataGenerator {
   val surface = List("smooth", "irregular")
 
   def generateTrainingData: List[TrainingData] = {
-    List.range(0, 10000).map { res =>
+    List.range(0, 1000).map { res =>
       new TrainingData(
         TumorReport(shape(random), size(random), color(random), surface(random)),
         if (random == 1) {
