@@ -3,10 +3,10 @@ package com.knoldus.concept_learning.app
 import akka.actor.{ActorSystem, Props}
 import akka.pattern._
 import akka.util.Timeout
-import com.knoldus.concept_learning.domains.FindS.{Concept, DataObject}
-import com.knoldus.concept_learning.actors.{FindSActor, GetHypothesis}
-import com.knoldus.concept_learning.domains.{TrainingData, TumorReport}
+import com.knoldus.concept_learning.actors.{FindSActor, FinishTraining, GetHypothesis}
+import com.knoldus.util.LogHelper
 
+import scala.collection.mutable.Map
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.Random
@@ -15,55 +15,67 @@ import scala.util.Random
 /**
   * Created by girish on 3/8/17.
   */
-object FindSApp extends App {
+object FindSApp extends App with LogHelper {
 
   implicit val timeout = Timeout(5 seconds)
   val actorSystem = ActorSystem("FindS-ActorSystem")
   val trainerActor = actorSystem.actorOf(Props[FindSActor])
 
-  /********************************
+
+  /** ******************************
     * TRAINING
-    ********************************/
+    * *******************************/
 
-  val trainingDataSamples: List[TrainingData] = TrainingDataGenerator.generateTrainingData
+  val trainingDataSamples: List[Map[String, Any]] = TrainingDataGenerator.generateTrainingData
 
-  println("**************************Start Training************************************")
-  //Training of actor is being start
-  trainingDataSamples map { trainingData =>
-    println(s"Training data: ${trainingData}")
+  info("***Start Training...")
+
+  val res = trainingDataSamples map { trainingData =>
+    info(s"Training data: $trainingData")
     trainerActor ! trainingData
+    true
   }
 
-  Thread.sleep(3000)
+  //Finish training
+  info("Finishing training...")
+  res.map { _ =>
+    trainerActor ! FinishTraining
+  }
+  info("***Training finished!")
 
-  /***************************************
+
+
+
+  /** *************************************
     * HYPOTHESIS
-    **************************************/
-  (trainerActor ? GetHypothesis) map {
-    case res: Option[Concept] =>
-      println("Final hypothesis.........>>>>>>>>>>>>>>>", res)
-  }
-  println("*****************************Training finished****************************")
-  Thread.sleep(2000)
+    * *************************************/
 
-
-  /*****************************************************
-   * TESTING
-   ******************************************************/
-  println("*****************************Testing****************************")
-  println("""***************("circular", "large", "dark", "smooth")***************""")
-
-  (trainerActor ? new DataObject("circular", "large", "dark", "smooth")) map {
-    case Some(positive: Boolean) => if (positive) {
-      println("Positive.......!!")
-    } else {
-      println("Negative.......!!")
-    }
-    case msg: String =>
-      println("ERROR: " + msg)
+  val finalHypothesis = (trainerActor ? GetHypothesis)
+  finalHypothesis map { hypothesis =>
+    info(s"***FINAL HYPOTHESIS... : $hypothesis")
   }
 
-  actorSystem.terminate()
+  /** ***************************************************
+    * TESTING
+    * ***************************************************/
+
+  info("***Testing new data object: <shape -> circular, size -> large, color -> dark, surface -> smooth>")
+
+  val response = trainerActor ? Map("shape" -> "circular", "size" -> "large", "color" -> "dark", "surface" -> "smooth")
+
+  response.map {
+    case status: Boolean =>
+      if (status) {
+        info("***THE DATA OBJECT IS ... : +POSITIVE")
+      } else {
+        info("***THE DATA OBJECT IS ... : -NEGATIVE")
+      }
+      status
+    case msg: String => error("ERROR FOUND WHILE PROCESSING: " + msg)
+      false
+  }
+
+  response.onComplete(_ => actorSystem.terminate())
 }
 
 
@@ -74,16 +86,11 @@ object TrainingDataGenerator {
   val color = List("dark", "light")
   val surface = List("smooth", "irregular")
 
-  def generateTrainingData: List[TrainingData] = {
-    List.range(0, 1000).map { res =>
-      new TrainingData(
-        TumorReport(shape(random), size(random), color(random), surface(random)),
-        if (random == 1) {
-          true
-        } else {
-          false
-        }
-      )
+  def generateTrainingData: List[Map[String, Any]] = {
+    List.range(0, 4).map { _ =>
+      val result = if (random == 1) true else false
+      Map("shape" -> shape(random), "size" -> size(random), "color" -> color(random), "surface" -> surface(random),
+        "result" -> result)
     }
   }
 

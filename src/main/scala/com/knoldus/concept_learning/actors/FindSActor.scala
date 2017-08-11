@@ -1,90 +1,113 @@
 package com.knoldus.concept_learning.actors
 
 import akka.actor.Actor
-import com.knoldus.concept_learning.domains.FindS.{Concept, DataObject}
-import com.knoldus.concept_learning.domains.TrainingData
+import akka.event.Logging
+import com.knoldus.util.LogHelper
 
 import scala.util.Try
 
 
 case object GetHypothesis
 
-/**
-  * Created by girish on 3/8/17.
-  */
-class FindSActor extends Actor {
+case object FinishTraining
 
-  var conceptOpt: Option[Concept] = None
 
-  def receive = {
 
-    case trainingData: TrainingData =>
-      println("Prcessing training data......>>>>>>>", trainingData)
-      import trainingData._
-      if (result) {
-        println(s"Result : ${result}, leaning......")
-        learnFrom(trainingData)
-      } else {
-        println(s"Ignoring the sample: ${sample}")
-      }
+class FindSActor extends Actor with LogHelper {
+  import context._
+  import scala.collection.mutable.Map
 
-    case GetHypothesis => sender ! conceptOpt
+  val log = Logging(context.system, this)
+  val concept: Map[String, Any] = Map().empty
 
-    case dataObject: DataObject => sender ! Try(predict(dataObject)).getOrElse("Incorrect training data")
-
-    case msg => println(s"Did not understand the message: ${msg}")
-
+  override def preStart(): Unit = {
+    info("Actor has become a trainy!")
+    become(trainy)
   }
 
-  private def learnFrom(sampleData: TrainingData): Unit = {
-    import sampleData._
-    conceptOpt match {
-      case Some(_) => findConjuctiveConcept(sample)
-      case None => conceptOpt = Some(sampleData.sample)
-    }
-  }
+  def trainy: Receive = {
 
-  private def findConjuctiveConcept(newH: Concept): Option[Concept] = {
-    conceptOpt.flatMap { concept =>
-      conceptOpt = Some(
-        new Concept(
-          if (newH.shape == concept.shape) {
-            concept.shape
+    case trainingSample: Map[String, Any] =>
+      info(s"Processing training data... : $trainingSample")
+      trainingSample.get("result") match {
+        case Some(result: Boolean) =>
+          if (result) {
+            info(s"positive sample found, learning from sample......")
+            learn(trainingSample - "result")
           } else {
-            "?"
-          },
-          if (newH.size == concept.size) {
-            newH.size
-          } else {
-            "?"
-          },
-          if (newH.color == concept.color) {
-            newH.color
-          } else {
-            "?"
-          },
-          if (newH.surface == concept.surface) {
-            newH.surface
-          } else {
-            "?"
+            warn(s"Ignoring the sample: $trainingSample")
           }
-        )
-      )
-      conceptOpt
+        case None =>
+          error("Invalid training sample found. Terminating learning process!")
+          become(angry)
+          throw new Exception("Invalid training sample")
+      }
+
+    case GetHypothesis => sender ! concept
+
+    case FinishTraining => become(trained)
+
+    case msg => error(s"Oops! Did not understand the message: $msg")
+
+  }
+
+  def trained: Receive = {
+
+    case dataObject: Map[String, Any] =>
+      info(s"Data object found for classification: $dataObject")
+      sender ! Try(predict(dataObject)).toOption.getOrElse("Exception found while processing. Please check the actor state!")
+
+    case _ => sender ! "Invalid data object found!"
+  }
+
+  private def predict(dataObject: Map[String, Any]): Boolean = {
+    !concept.map {
+      case (k, v) =>
+        dataObject.get(k) match {
+          case Some(value) => if (v.equals(value) || v == "?") true else false
+          case None => error("Invalid object found! Stopping analysis!")
+            throw new Exception("Invalid object found!")
+        }
+      case _ => error("Inconsistency found! Please check your training data and train the model again!")
+        throw new Exception("Inconsistency found!")
+    }.toList.contains(false)
+  }
+
+  def angry: Receive = {
+    case _ => sender ! "Inconsistency found! Stopped learning! Please check your training data!"
+  }
+
+  private def learn(sample: Map[String, Any]): Unit = {
+    if (concept.isEmpty) {
+      sample.map {
+        case (k, v) => concept.put(k, v)
+        case _ => error("Inconsistency found! Stopped learning! Please check your training data!")
+          become(angry)
+          throw new Exception("Invalid training sample")
+      }
+    } else {
+      findConjunctiveConcept(sample)
     }
   }
 
-  private def predict(dataObject: DataObject): Option[Boolean] = {
-    conceptOpt map { concept =>
-      if (concept.shape == "?" && concept.size == "?" && concept.color == "?" && concept.surface == "?") {
-        throw new Exception("Incorrect training data!")
-      } else {
-        (if (dataObject.shape == concept.shape) true else if (concept.shape == "?") true else false) &&
-          (if (dataObject.size == concept.size) true else if (concept.size == "?") true else false) &&
-          (if (dataObject.color == concept.color) true else if (concept.color == "?") true else false) &&
-          (if (dataObject.surface == concept.surface) true else if (concept.surface == "?") true else false)
-      }
+  private def findConjunctiveConcept(sample: Map[String, Any]): Unit = {
+    concept.foreach {
+      case (k, v) =>
+        sample.get(k) match {
+          case Some(value) =>
+            if (!v.equals(value)) {
+              concept.update(k, "?")
+            }
+          case None => error("Inconsistency found! Stopped learning! Please check your training data!")
+            become(angry)
+            throw new Exception("Invalid training sample")
+        }
+      case _ => error("Inconsistency found! Stopped learning! Please check your training data!")
+        become(angry)
+        throw new Exception("Invalid training sample found! Stopping learning process!")
     }
   }
+
+  def receive: Receive = trainy
 
 }

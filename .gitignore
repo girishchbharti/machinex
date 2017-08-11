@@ -33,6 +33,5 @@ project/boot
 projectFilesBackup/
 project/
 .cache-main
-.gitignore
 .idea_modules/
-build.sbt
+
