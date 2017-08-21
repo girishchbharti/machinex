@@ -1,8 +1,5 @@
 package com.knoldus.conceptlearning.common
 
-import com.knoldus.util.LogHelper
-
-
 
 /**
   * Responsibility of this class would be
@@ -13,7 +10,7 @@ import com.knoldus.util.LogHelper
   * 3. Training Find-S algorithm with training data
   * 4. Verification of the algorithm with validation data
   */
-trait Trainer extends LogHelper {
+trait Trainer {
 
   //Train the algorithm
   def train: Boolean
