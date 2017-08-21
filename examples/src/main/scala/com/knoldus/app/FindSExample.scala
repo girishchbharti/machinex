@@ -42,7 +42,7 @@ object FindSExample extends App with LogHelper {
     * *******************************/
   val trainedModel = trainer.model
 
-  println("\n\n\n***Hypothesis: ", trainedModel.getHypothesis)
+  info(s"***Hypothesis: ${trainedModel.getHypothesis}")
 
   /** ***********************************
     * TESTING
