@@ -7,7 +7,7 @@ import com.knoldus.util.{FileHelper, LogHelper}
 
 
 /**
-  * Created by girish on 3/8/17.
+  * Find-S example
   */
 object FindSExample extends App with LogHelper {
 
@@ -15,7 +15,6 @@ object FindSExample extends App with LogHelper {
     * TRAINING DATA GENERATION
     * *******************************/
   val trainingDataFilePath = ConceptLearningTrainingDataGenerator.randomTrainingData
-
 
   /** ******************************
     * TRAINER INITIALIZATION

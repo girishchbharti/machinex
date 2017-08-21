@@ -1,7 +1,7 @@
 package com.knoldus.conceptlearning.common
 
 /**
-  * Created by girish on 18/8/17.
+  * Model to be trained
   */
 trait Model {
 
