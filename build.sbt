@@ -4,20 +4,32 @@ version := "1.0"
 
 scalaVersion := "2.11.6"
 
-lazy val akkaVersion = "2.4.0"
 
-resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
+import Dependencies._
+import ProjectSettings._
 
-libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
-  "junit" % "junit" % "4.12" % "test",
-  "com.novocode" % "junit-interface" % "0.11" % "test",
-  "ch.qos.logback" % "logback-classic" % "1.0.13",
-  "org.scalanlp" %% "breeze" % "0.13.2",
-  "org.scalanlp" %% "breeze-natives" % "0.13.2",
-  "org.scalanlp" %% "breeze-viz" % "0.13.2"
+resolvers ++= Seq(
+  Resolver.sonatypeRepo("releases"),
+  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
 )
 
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-v")
+lazy val learning = BaseProject("learning").settings(
+  libraryDependencies ++= compileDependencies(akkaActor.value ++ breez.value)
+    ++ testDependencies(Nil)
+    ++ testClassifierDependencies(Nil/*scalaTest.value*/),
+  parallelExecution in Test := false).dependsOn(common, persistence)
+
+lazy val persistence = BaseProject("persistence").settings(
+  libraryDependencies ++= compileDependencies(Nil)
+    ++ testDependencies(Nil/*scalaTest.value*/),
+  parallelExecution in Test := false).dependsOn(common)
+
+lazy val common = BaseProject("common").settings(
+  libraryDependencies ++= compileDependencies(logbackClassic.value ++ log4j.value ++ json4sNative.value)
+    ++ testDependencies(Nil/*scalaTest.value*/),
+  parallelExecution in Test := false)
+
+lazy val examples = BaseProject("examples").settings(
+  libraryDependencies ++= compileDependencies(Nil)
+    ++ testDependencies(Nil),
+  parallelExecution in Test := false).dependsOn(learning)
